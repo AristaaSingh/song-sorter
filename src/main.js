@@ -200,6 +200,39 @@ ipcMain.handle('add-to-playlist', async (_, { playlistId, trackUri }) => {
 
 ipcMain.handle('open-spotify', () => shell.openExternal('spotify:'));
 
+ipcMain.handle('save-progress', (_, { key, index }) => {
+  const cfg = loadConfig();
+  if (!cfg.progress) cfg.progress = {};
+  cfg.progress[key] = index;
+  saveConfig(cfg);
+  return true;
+});
+
+ipcMain.handle('get-playlist-tracks', async (_, { playlistId, offset, limit }) => {
+  const cfg = loadConfig();
+  const res = await apiCall('GET', `/v1/playlists/${playlistId}/tracks?offset=${offset}&limit=${limit}`, null, cfg.clientId);
+  return res.body;
+});
+
+ipcMain.handle('get-player-state', async () => {
+  const cfg = loadConfig();
+  const res = await apiCall('GET', '/v1/me/player', null, cfg.clientId);
+  return res.status === 200 ? res.body : null;
+});
+
+ipcMain.handle('pause-playback', async () => {
+  const cfg = loadConfig();
+  const res = await apiCall('PUT', '/v1/me/player/pause', null, cfg.clientId);
+  return res.status;
+});
+
+ipcMain.handle('resume-playback', async (_, { deviceId, trackUri }) => {
+  const cfg = loadConfig();
+  const endpoint = deviceId ? `/v1/me/player/play?device_id=${deviceId}` : '/v1/me/player/play';
+  const res = await apiCall('PUT', endpoint, { uris: [trackUri] }, cfg.clientId);
+  return res.status;
+});
+
 ipcMain.handle('get-devices', async () => {
   const cfg = loadConfig();
   const res = await apiCall('GET', '/v1/me/player/devices', null, cfg.clientId);

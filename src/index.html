@@ -50,7 +50,7 @@
       flex: 1;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr 1fr;
+      grid-template-rows: 1fr 2fr;
       gap: 1px;
       background: #1a1a1a;
       border-radius: 12px;
@@ -78,12 +78,45 @@
       position: relative;
       padding: 12px 12px 0;
     }
+    #album-art-wrap {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+    }
     #album-art {
       width: 100%;
       height: auto;
       display: block;
-      border-radius: 12px;
     }
+    #album-controls-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      opacity: 0;
+      transition: opacity .18s;
+    }
+    #album-art-wrap:hover #album-controls-overlay { opacity: 1; }
+    .album-ctrl-btn {
+      background: rgba(0,0,0,.55);
+      border: none;
+      border-radius: 50%;
+      width: 38px;
+      height: 38px;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .12s, transform .12s;
+      -webkit-app-region: no-drag;
+    }
+    .album-ctrl-btn:hover { background: rgba(0,0,0,.8); transform: scale(1.1); }
+    .album-ctrl-btn.main { width: 50px; height: 50px; font-size: 20px; }
     #progress-overlay {
       position: absolute;
       bottom: 0;
@@ -97,10 +130,26 @@
       background: #1db954;
       transition: width .4s;
     }
-    #skip-row {
+    #track-progress-wrap { display: flex; flex-direction: column; gap: 4px; }
+    #track-progress-bar {
+      width: 100%;
+      height: 3px;
+      background: #222;
+      border-radius: 2px;
+      cursor: pointer;
+    }
+    #track-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: #1db954;
+      border-radius: 2px;
+      transition: width .9s linear;
+    }
+    #track-time-row {
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      font-size: 10px;
+      color: #555;
     }
     #progress-label {
       font-size: 11px;
@@ -108,21 +157,69 @@
       letter-spacing: .04em;
     }
 
-    /* Bottom-left: waveform + track info */
-    #cell-wave {
-      padding: 12px 16px 14px;
-      gap: 8px;
+    /* Bottom-left: track info + playback controls */
+    #cell-tracker {
+      padding: 14px 16px 14px;
+      gap: 10px;
       background: #0a0a0a;
       flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top-right: waveform */
+    #cell-waveform {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 20px;
+      background: #0a0a0a;
     }
     #waveform-wrap {
+      width: 100%;
       display: flex;
       align-items: center;
     }
     #waveform {
       width: 100%;
-      height: 32px;
+      height: 48px;
       display: block;
+    }
+
+    /* Bottom-right: create + playlists stacked */
+    #cell-right {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #cell-create-inner {
+      padding: 16px 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex-shrink: 0;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    #cell-create-inner h3 {
+      font-size: 11px;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+    }
+    #cell-playlists-inner {
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+      overflow: hidden;
+    }
+    #cell-playlists-inner h3 {
+      font-size: 11px;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      flex-shrink: 0;
     }
     #track-info { flex-shrink: 0; }
     #track-name {
@@ -153,46 +250,9 @@
       align-self: flex-start;
     }
 
-    /* Top-right: create playlist */
-    #cell-create {
-      padding: 24px 22px;
-      gap: 12px;
-      border-bottom: 1px solid #1a1a1a;
-    }
-    #cell-create h3 {
-      font-size: 11px;
-      color: #555;
-      text-transform: uppercase;
-      letter-spacing: .1em;
-      flex-shrink: 0;
-    }
-    #cell-create p {
-      font-size: 13px;
-      color: #666;
-      line-height: 1.5;
-      flex-shrink: 0;
-    }
-    #new-playlist-input {
-      width: 100%;
-      flex-shrink: 0;
-    }
-    #create-add-btn {
-      width: 100%;
-      flex-shrink: 0;
-    }
+    #new-playlist-input { width: 100%; }
+    #create-add-btn { width: 100%; }
 
-    /* Bottom-right: existing playlists */
-    #cell-playlists {
-      padding: 16px 22px;
-      gap: 10px;
-    }
-    #cell-playlists h3 {
-      font-size: 11px;
-      color: #555;
-      text-transform: uppercase;
-      letter-spacing: .1em;
-      flex-shrink: 0;
-    }
     #playlist-list {
       flex: 1;
       overflow-y: auto;
@@ -239,20 +299,33 @@
 
     .playlist-btn {
       width: 100%;
-      padding: 9px 13px;
+      padding: 7px 10px;
       background: #111;
       border: 1px solid #222;
-      border-radius: 7px;
+      border-radius: 8px;
       color: #ddd;
       font-size: 13px;
       text-align: left;
       cursor: pointer;
       transition: background .1s, border-color .1s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .playlist-btn:hover { background: #181818; border-color: #1db954; color: #fff; }
+    .playlist-btn span {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .playlist-btn:hover { background: #181818; border-color: #1db954; color: #fff; }
+    .playlist-thumb {
+      width: 36px;
+      height: 36px;
+      border-radius: 4px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #222;
+    }
 
     /* ---- Full-screen states ---- */
     #loading-screen, #done-screen {
@@ -266,6 +339,74 @@
       font-size: 14px;
     }
     #done-screen { color: #fff; font-size: 18px; font-weight: 600; }
+
+    /* ---- Source picker ---- */
+    #source-picker {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 32px 28px 28px;
+      gap: 20px;
+      overflow: hidden;
+    }
+    #source-picker h1 { font-size: 22px; font-weight: 700; }
+    #source-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    #source-list::-webkit-scrollbar { width: 3px; }
+    #source-list::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+    .source-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 12px;
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background .1s, border-color .1s;
+      text-align: left;
+      width: 100%;
+    }
+    .source-item:hover { background: #181818; border-color: #1db954; }
+    .source-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 6px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #222;
+    }
+    .source-liked-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #450af5, #c4efd9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .source-info { flex: 1; min-width: 0; }
+    .source-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+    .source-meta { font-size: 12px; color: #555; margin-top: 2px; }
+    .source-progress-text { font-size: 11px; color: #1db954; margin-top: 3px; }
+    .source-progress-bar {
+      height: 2px;
+      background: #222;
+      border-radius: 1px;
+      margin-top: 5px;
+    }
+    .source-progress-fill {
+      height: 100%;
+      background: #1db954;
+      border-radius: 1px;
+    }
 
     /* ---- Spotify modal ---- */
     #spotify-modal-backdrop {
@@ -333,57 +474,80 @@
     <p id="no-premium-note">Playback requires Spotify Premium.</p>
   </div>
 
+  <!-- Source picker -->
+  <div id="source-picker" class="hidden">
+    <h1>What do you want to sort?</h1>
+    <div id="source-list"></div>
+  </div>
+
   <!-- Loading -->
   <div id="loading-screen" class="hidden">
     <div>Loading your library…</div>
   </div>
 
   <!-- Done -->
-  <div id="done-screen" class="hidden">All done! 🎉</div>
+  <div id="done-screen" class="hidden">
+    <div id="done-msg">All done! 🎉</div>
+    <button class="btn btn-outline" id="sort-another-btn" style="margin-top:16px">← Sort another playlist</button>
+  </div>
 
   <!-- Main sorter grid -->
   <div id="sorter-wrap" class="hidden">
   <div id="sorter">
 
-    <!-- Left column: album + waveform, no divider -->
+    <!-- Left column: album + tracker, seamless -->
     <div id="cell-left">
 
       <div id="cell-album">
-        <img id="album-art" src="" alt="" />
+        <div id="album-art-wrap">
+          <img id="album-art" src="" alt="" />
+          <div id="album-controls-overlay">
+            <button class="album-ctrl-btn" id="prev-btn">⏮</button>
+            <button class="album-ctrl-btn main" id="playpause-btn">⏸</button>
+            <button class="album-ctrl-btn" id="next-btn">⏭</button>
+          </div>
+        </div>
         <div id="progress-overlay">
           <div id="progress-bar" style="width:0%"></div>
         </div>
       </div>
 
-      <div id="cell-wave">
-        <div id="waveform-wrap">
-          <canvas id="waveform"></canvas>
+      <div id="cell-tracker">
+        <div id="track-progress-wrap">
+          <div id="track-progress-bar"><div id="track-progress-fill"></div></div>
+          <div id="track-time-row">
+            <span id="track-time-current">0:00</span>
+            <span id="track-time-total">0:00</span>
+          </div>
         </div>
         <div id="track-info">
           <div id="track-name">—</div>
           <div id="artist-name">—</div>
           <div id="album-name">—</div>
         </div>
-        <div id="skip-row">
-          <button class="btn btn-outline" id="skip-btn">Skip →</button>
-          <span id="progress-label">0 / 0</span>
-        </div>
+        <span id="progress-label">0 / 0</span>
       </div>
 
     </div>
 
-    <!-- Top-right: create new playlist -->
-    <div class="cell" id="cell-create">
-      <h3>New playlist</h3>
-      <p>Create a playlist and add this song to it.</p>
-      <input id="new-playlist-input" type="text" placeholder="Playlist name…" />
-      <button class="btn btn-green" id="create-add-btn">Create &amp; Add Song</button>
+    <!-- Top-right: waveform -->
+    <div class="cell" id="cell-waveform">
+      <div id="waveform-wrap">
+        <canvas id="waveform"></canvas>
+      </div>
     </div>
 
-    <!-- Bottom-right: existing playlists -->
-    <div class="cell" id="cell-playlists">
-      <h3>Add to existing playlist</h3>
-      <div id="playlist-list"></div>
+    <!-- Bottom-right: create + playlists -->
+    <div class="cell" id="cell-right">
+      <div id="cell-create-inner">
+        <h3>New playlist</h3>
+        <input id="new-playlist-input" type="text" placeholder="Playlist name…" />
+        <button class="btn btn-green" id="create-add-btn">Create &amp; Add Song</button>
+      </div>
+      <div id="cell-playlists-inner">
+        <h3>Add to existing playlist</h3>
+        <div id="playlist-list"></div>
+      </div>
     </div>
 
   </div>
