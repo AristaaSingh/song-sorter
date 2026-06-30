@@ -1,3 +1,6 @@
+import { extractDominantColor, applyBackground } from './background.js';
+import { initWaveform, stopWaveform } from './waveform.js';
+
 let tracks = [];
 let currentIndex = 0;
 let totalTracks = 0;
@@ -8,14 +11,10 @@ let currentSource = null; // { type: 'liked' } | { type: 'playlist', id, name }
 // Playback
 let spotifyDeviceId = null;
 let isPlaying = false;
-let playStartTime = null;   // Date.now() when current track started (adjusted for pauses)
-let pausedAt = 0;           // ms elapsed when paused
+let playStartTime = null;
+let pausedAt = 0;
 let trackDuration = 0;
 let trackProgressRaf = null;
-
-// Waveform
-let wavePhase = 0;
-let waveAnimId = null;
 
 // ---- UI helpers ----
 function show(id) { document.getElementById(id).classList.remove('hidden'); }
@@ -38,122 +37,10 @@ async function saveProgress() {
   if (key) await window.spotify.saveProgress({ key, index: currentIndex });
 }
 
-// ---- Waveform ----
-function initWaveform() {
-  const canvas = document.getElementById('waveform');
-  const wrap = document.getElementById('waveform-wrap');
-  canvas.width = wrap.clientWidth || 260;
-  canvas.height = 48;
-  drawWaveframe();
-}
-
-function drawWaveframe() {
-  const canvas = document.getElementById('waveform');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width;
-  const H = canvas.height;
-  const cx = H / 2;
-
-  ctx.clearRect(0, 0, W, H);
-
-  const barCount = 48;
-  const barW = 2;
-  const gap = (W - barCount * barW) / (barCount - 1);
-
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, '#1db954');
-  grad.addColorStop(1, '#158a3e');
-  ctx.fillStyle = grad;
-
-  for (let i = 0; i < barCount; i++) {
-    const t = i / barCount;
-    let barH;
-    if (isPlaying) {
-      const amp =
-        0.45 * Math.sin(wavePhase * 2.1 + t * Math.PI * 5) +
-        0.30 * Math.sin(wavePhase * 3.7 + t * Math.PI * 9 + 1.2) +
-        0.25 * Math.sin(wavePhase * 1.3 + t * Math.PI * 3 + 2.4);
-      barH = Math.max(2, Math.abs(amp) * H * 0.85);
-    } else {
-      barH = Math.max(2, 3 + 2 * Math.sin(wavePhase + i * 0.4));
-    }
-    const x = i * (barW + gap);
-    ctx.fillRect(x, cx - barH / 2, barW, barH);
-  }
-
-  wavePhase += isPlaying ? 0.07 : 0.008;
-  waveAnimId = requestAnimationFrame(drawWaveframe);
-}
-
-// ---- Dynamic background from album art ----
-function extractDominantColor(img) {
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = 50; canvas.height = 50;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, 50, 50);
-    const data = ctx.getImageData(0, 0, 50, 50).data;
-
-    let bestR = 0, bestG = 0, bestB = 0, bestScore = -1;
-    for (let i = 0; i < data.length; i += 12) {
-      const r = data[i], g = data[i+1], b = data[i+2];
-      const brightness = (r + g + b) / 3;
-      if (brightness < 25 || brightness > 230) continue;
-      // Score by saturation: how far from grey
-      const max = Math.max(r, g, b), min = Math.min(r, g, b);
-      const saturation = max === 0 ? 0 : (max - min) / max;
-      if (saturation > bestScore) {
-        bestScore = saturation; bestR = r; bestG = g; bestB = b;
-      }
-    }
-    return bestScore >= 0 ? { r: bestR, g: bestG, b: bestB } : null;
-  } catch { return null; }
-}
-
-function applyBackground(color) {
-  if (!color) {
-    document.body.style.background = '#0a0a0a';
-    document.getElementById('cell-create-inner').style.background = 'rgba(0,0,0,0.45)';
-    document.getElementById('cell-playlists-inner').style.background = 'rgba(0,0,0,0.45)';
-    document.getElementById('cell-tracker').style.background = 'rgba(0,0,0,0.45)';
-    return;
-  }
-  const { r, g, b } = color;
-  // All stops fully opaque — lerp between accent and dark floor so no white bleeds in
-  const lerp = (a, b, t) => Math.round(a + (b - a) * t);
-  const fr = 8, fg = 6, fb = 8; // very dark tinted floor
-  const dr = lerp(r, fr, 0.93), dg = lerp(g, fg, 0.93), db = lerp(b, fb, 0.93);
-  const mr = lerp(r, fr, 0.55), mg = lerp(g, fg, 0.55), mb = lerp(b, fb, 0.55);
-  const lr = lerp(r, fr, 0.78), lg = lerp(g, fg, 0.78), lb = lerp(b, fb, 0.78);
-  const clamp = v => Math.min(255, v);
-  const br = clamp(Math.round(r * 1.55)), bg2 = clamp(Math.round(g * 1.55)), bb = clamp(Math.round(b * 1.55));
-  document.body.style.background = `
-    radial-gradient(ellipse 160% 65% at 50% 0%,
-      rgb(${br},${bg2},${bb}) 0%,
-      rgb(${r},${g},${b}) 18%,
-      rgb(${mr},${mg},${mb}) 45%,
-      rgb(${lr},${lg},${lb}) 68%,
-      rgb(${dr},${dg},${db}) 100%)`;
-  // Tab gradients: same lerp approach, slightly muted so they don't overpower the background
-  const tr = lerp(r, fr, 0.30), tg = lerp(g, fg, 0.30), tb = lerp(b, fb, 0.30);
-  const tmr = lerp(r, fr, 0.62), tmg = lerp(g, fg, 0.62), tmb = lerp(b, fb, 0.62);
-  const tdr = lerp(r, fr, 0.88), tdg = lerp(g, fg, 0.88), tdb = lerp(b, fb, 0.88);
-  const tbr = clamp(Math.round(tr * 1.55)), tbg2 = clamp(Math.round(tg * 1.55)), tbb = clamp(Math.round(tb * 1.55));
-  const tabGrad = `linear-gradient(160deg,
-    rgb(${tbr},${tbg2},${tbb}) 0%,
-    rgb(${tr},${tg},${tb}) 18%,
-    rgb(${tmr},${tmg},${tmb}) 55%,
-    rgb(${tdr},${tdg},${tdb}) 100%)`;
-  document.getElementById('cell-create-inner').style.background = tabGrad;
-  document.getElementById('cell-playlists-inner').style.background = tabGrad;
-  document.getElementById('cell-tracker').style.background = tabGrad;
-}
-
-// ---- Track progress (local, no polling) ----
+// ---- Track progress ----
 function formatTime(ms) {
   const s = Math.floor(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '00')}`;
 }
 
 function startTrackProgress(durationMs) {
@@ -183,13 +70,13 @@ async function togglePlayPause() {
   if (isPlaying) {
     await window.spotify.pausePlayback();
     isPlaying = false;
-    pausedAt = Date.now() - playStartTime;   // remember where we are
+    pausedAt = Date.now() - playStartTime;
     stopTrackProgress();
   } else {
     const track = tracks[currentIndex]?.track;
     await window.spotify.resumePlayback({ deviceId: spotifyDeviceId, trackUri: track?.uri });
     isPlaying = true;
-    playStartTime = Date.now() - pausedAt;   // shift start time so elapsed stays correct
+    playStartTime = Date.now() - pausedAt;
     startTrackProgress(trackDuration);
   }
   document.getElementById('playpause-btn').textContent = isPlaying ? '⏸' : '▶';
@@ -244,7 +131,6 @@ async function playCurrentSong() {
 async function showSourcePicker() {
   hide('sorter-wrap');
   hide('done-screen');
-  hide('loading-screen');
   show('loading-screen');
 
   const [likedFirst, plRes, cfg] = await Promise.all([
@@ -262,31 +148,27 @@ async function showSourcePicker() {
   const list = document.getElementById('source-list');
   list.innerHTML = '';
 
-  // Liked Songs
   const likedTotal = likedFirst.total;
   const likedDone = progress['liked'] || 0;
-  const likedItem = makeSourceItem({
+  list.appendChild(makeSourceItem({
     thumbHtml: '<div class="source-liked-thumb">♥</div>',
     name: 'Liked Songs',
     total: likedTotal,
     done: likedDone,
     onClick: () => startSorting({ type: 'liked' }, likedTotal),
-  });
-  list.appendChild(likedItem);
+  }));
 
-  // Owned playlists
   ownedPlaylists.forEach(pl => {
     const total = pl.tracks?.total ?? 0;
     const done = progress[pl.id] || 0;
     const imgSrc = pl.images?.[0]?.url || '';
-    const item = makeSourceItem({
+    list.appendChild(makeSourceItem({
       thumbHtml: `<img class="source-thumb" src="${imgSrc}" alt="" />`,
       name: pl.name,
       total,
       done,
       onClick: () => startSorting({ type: 'playlist', id: pl.id, name: pl.name }, total),
-    });
-    list.appendChild(item);
+    }));
   });
 }
 
@@ -342,7 +224,6 @@ async function startAuth() {
   show('loading-screen');
   try {
     await window.spotify.authenticate(clientId);
-    show('loading-screen');
     const me = await window.spotify.getMe();
     userId = me.id;
     hide('loading-screen');
@@ -360,12 +241,10 @@ async function loadSorter(total) {
   hide('sorter-wrap');
   hide('done-screen');
 
-  // Restore saved progress
   const cfg = await window.spotify.getConfig();
   const savedIndex = (cfg.progress || {})[progressKey()] || 0;
   totalTracks = total;
 
-  // Fetch first batch at saved offset
   const batchOffset = Math.floor(savedIndex / 50) * 50;
   const [firstBatch, plRes] = await Promise.all([
     fetchTracks(batchOffset, 50),
@@ -415,7 +294,7 @@ async function ensureTrack(index) {
 }
 
 function showSong(index) {
-document.getElementById('progress-label').textContent = `${index + 1} / ${totalTracks}`;
+  document.getElementById('progress-label').textContent = `${index + 1} / ${totalTracks}`;
 
   const item = tracks[index];
   if (!item) return;
@@ -462,9 +341,28 @@ async function addToPlaylist(playlistId, playlistName) {
   await nextSong();
 }
 
+function showConfirmModal(message) {
+  return new Promise((resolve) => {
+    document.getElementById('confirm-modal-msg').textContent = message;
+    show('confirm-modal-backdrop');
+    document.getElementById('confirm-modal-yes').onclick = () => {
+      hide('confirm-modal-backdrop');
+      resolve(true);
+    };
+    document.getElementById('confirm-modal-no').onclick = () => {
+      hide('confirm-modal-backdrop');
+      resolve(false);
+    };
+  });
+}
+
 async function createAndAdd() {
   const name = document.getElementById('new-playlist-input').value.trim();
   if (!name) { toast('Enter a playlist name', '#e74c3c'); return; }
+
+  const confirmed = await showConfirmModal(`Create "${name}" and add the current song to it?`);
+  if (!confirmed) return;
+
   const newPl = await window.spotify.createPlaylist({ userId, name });
   playlists.unshift(newPl);
   renderPlaylists();
@@ -477,7 +375,7 @@ async function nextSong() {
   await saveProgress();
 
   if (currentIndex >= totalTracks) {
-    cancelAnimationFrame(waveAnimId);
+    stopWaveform();
     stopTrackProgress();
     hide('sorter-wrap');
     document.getElementById('done-msg').textContent = 'All done! 🎉';
@@ -490,7 +388,6 @@ async function nextSong() {
   playCurrentSong();
 }
 
-// ---- Boot ----
 async function previousSong() {
   if (currentIndex <= 0) return;
   currentIndex--;
@@ -500,6 +397,7 @@ async function previousSong() {
   playCurrentSong();
 }
 
+// ---- Event listeners ----
 document.getElementById('auth-btn').addEventListener('click', startAuth);
 document.getElementById('playpause-btn').addEventListener('click', togglePlayPause);
 document.getElementById('prev-btn').addEventListener('click', previousSong);

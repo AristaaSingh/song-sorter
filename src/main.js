@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, desktopCapturer } = require('electron');
 const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
@@ -242,6 +242,12 @@ ipcMain.handle('start-playback', async (_, { deviceId, trackUri }) => {
   const res = await apiCall('PUT', endpoint, { uris: [trackUri] }, cfg.clientId);
   return res.status;
 });
+
+ipcMain.handle('get-desktop-sources', async () => {
+  const sources = await desktopCapturer.getSources({ types: ['screen'] });
+  return sources.map(s => ({ id: s.id, name: s.name }));
+});
+
 
 ipcMain.handle('get-me', async () => {
   const cfg = loadConfig();

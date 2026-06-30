@@ -16,4 +16,5 @@ contextBridge.exposeInMainWorld('spotify', {
   createPlaylist: (opts) => ipcRenderer.invoke('create-playlist', opts),
   addToPlaylist: (opts) => ipcRenderer.invoke('add-to-playlist', opts),
   getMe: () => ipcRenderer.invoke('get-me'),
+  getDesktopSources: () => ipcRenderer.invoke('get-desktop-sources'),
 });
