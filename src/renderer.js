@@ -131,10 +131,16 @@ function applyBackground(color) {
       rgb(${mr},${mg},${mb}) 40%,
       rgb(${lr},${lg},${lb}) 65%,
       rgb(${dr},${dg},${db}) 100%)`;
-  document.getElementById('cell-create-inner').style.background =
-    `linear-gradient(135deg, rgba(${r},${g},${b},0.30) 0%, rgba(${r},${g},${b},0.08) 100%)`;
-  document.getElementById('cell-playlists-inner').style.background =
-    `linear-gradient(155deg, rgba(${r},${g},${b},0.22) 0%, rgba(${r},${g},${b},0.06) 100%)`;
+  // Tab gradients: same lerp approach, slightly muted so they don't overpower the background
+  const tr = lerp(r, fr, 0.30), tg = lerp(g, fg, 0.30), tb = lerp(b, fb, 0.30);
+  const tmr = lerp(r, fr, 0.62), tmg = lerp(g, fg, 0.62), tmb = lerp(b, fb, 0.62);
+  const tdr = lerp(r, fr, 0.88), tdg = lerp(g, fg, 0.88), tdb = lerp(b, fb, 0.88);
+  const tabGrad = `linear-gradient(160deg,
+    rgb(${tr},${tg},${tb}) 0%,
+    rgb(${tmr},${tmg},${tmb}) 50%,
+    rgb(${tdr},${tdg},${tdb}) 100%)`;
+  document.getElementById('cell-create-inner').style.background = tabGrad;
+  document.getElementById('cell-playlists-inner').style.background = tabGrad;
 }
 
 // ---- Track progress (local, no polling) ----
@@ -483,6 +489,7 @@ async function nextSong() {
 async function previousSong() {
   if (currentIndex <= 0) return;
   currentIndex--;
+  await saveProgress();
   await ensureTrack(currentIndex);
   showSong(currentIndex);
   playCurrentSong();
