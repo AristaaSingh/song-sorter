@@ -9,25 +9,28 @@ const fs = require('fs');
 const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
 const REDIRECT_PORT = 8888;
 const REDIRECT_URI = `http://127.0.0.1:${REDIRECT_PORT}/callback`;
-const SCOPES = 'user-library-read playlist-read-private playlist-modify-public playlist-modify-private';
+const SCOPES = [
+  'user-library-read',
+  'playlist-read-private',
+  'playlist-modify-public',
+  'playlist-modify-private',
+  'user-read-private',
+  'user-read-playback-state',
+  'user-modify-playback-state',
+].join(' ');
 
 let mainWindow;
 let authServer;
 
-// --- Config persistence ---
 function loadConfig() {
-  try {
-    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-  } catch {
-    return {};
-  }
+  try { return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); }
+  catch { return {}; }
 }
 
 function saveConfig(data) {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(data, null, 2));
 }
 
-// --- PKCE helpers ---
 function generateCodeVerifier() {
   return crypto.randomBytes(64).toString('base64url');
 }
@@ -36,18 +39,14 @@ function generateCodeChallenge(verifier) {
   return crypto.createHash('sha256').update(verifier).digest('base64url');
 }
 
-// --- Spotify API ---
 function spotifyRequest(options, postData) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        try {
-          resolve({ status: res.statusCode, body: data ? JSON.parse(data) : {} });
-        } catch {
-          resolve({ status: res.statusCode, body: data });
-        }
+        try { resolve({ status: res.statusCode, body: data ? JSON.parse(data) : {} }); }
+        catch { resolve({ status: res.statusCode, body: data }); }
       });
     });
     req.on('error', reject);
@@ -80,15 +79,11 @@ async function apiCall(method, endpoint, body, clientId) {
       hostname: 'api.spotify.com',
       path: endpoint,
       method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     }, body ? JSON.stringify(body) : undefined);
   }
 
   let res = await doRequest(config.accessToken);
-
   if (res.status === 401) {
     const refreshed = await refreshAccessToken(clientId, config.refreshToken);
     config.accessToken = refreshed.access_token;
@@ -96,11 +91,9 @@ async function apiCall(method, endpoint, body, clientId) {
     saveConfig(config);
     res = await doRequest(config.accessToken);
   }
-
   return res;
 }
 
-// --- Auth flow ---
 function startAuth(clientId) {
   return new Promise((resolve, reject) => {
     const verifier = generateCodeVerifier();
@@ -161,13 +154,11 @@ function startAuth(clientId) {
       }
     });
 
-    authServer.listen(REDIRECT_PORT, '127.0.0.1', () => {
-      shell.openExternal(authUrl.toString());
-    });
+    authServer.listen(REDIRECT_PORT, '127.0.0.1', () => shell.openExternal(authUrl.toString()));
   });
 }
 
-// --- IPC handlers ---
+// --- IPC ---
 ipcMain.handle('get-config', () => loadConfig());
 
 ipcMain.handle('save-client-id', (_, clientId) => {
@@ -181,6 +172,7 @@ ipcMain.handle('authenticate', async (_, clientId) => {
   await startAuth(clientId);
   return true;
 });
+
 
 ipcMain.handle('get-liked-songs', async (_, { offset, limit }) => {
   const cfg = loadConfig();
@@ -206,17 +198,37 @@ ipcMain.handle('add-to-playlist', async (_, { playlistId, trackUri }) => {
   return res.body;
 });
 
+ipcMain.handle('open-spotify', () => shell.openExternal('spotify:'));
+
+ipcMain.handle('get-devices', async () => {
+  const cfg = loadConfig();
+  const res = await apiCall('GET', '/v1/me/player/devices', null, cfg.clientId);
+  return res.body;
+});
+
+ipcMain.handle('start-playback', async (_, { deviceId, trackUri }) => {
+  const cfg = loadConfig();
+  const endpoint = deviceId
+    ? `/v1/me/player/play?device_id=${deviceId}`
+    : '/v1/me/player/play';
+  const res = await apiCall('PUT', endpoint, { uris: [trackUri] }, cfg.clientId);
+  return res.status;
+});
+
 ipcMain.handle('get-me', async () => {
   const cfg = loadConfig();
   const res = await apiCall('GET', '/v1/me', null, cfg.clientId);
   return res.body;
 });
 
-// --- App bootstrap ---
+// Allow audio autoplay without requiring a prior user gesture
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
+// --- Bootstrap ---
 app.whenReady().then(() => {
   mainWindow = new BrowserWindow({
-    width: 480,
-    height: 700,
+    width: 880,
+    height: 620,
     resizable: false,
     titleBarStyle: 'hiddenInset',
     webPreferences: {
