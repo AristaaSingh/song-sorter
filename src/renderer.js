@@ -86,6 +86,57 @@ function drawWaveframe() {
   waveAnimId = requestAnimationFrame(drawWaveframe);
 }
 
+// ---- Dynamic background from album art ----
+function extractDominantColor(img) {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 50; canvas.height = 50;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, 50, 50);
+    const data = ctx.getImageData(0, 0, 50, 50).data;
+
+    let bestR = 0, bestG = 0, bestB = 0, bestScore = -1;
+    for (let i = 0; i < data.length; i += 12) {
+      const r = data[i], g = data[i+1], b = data[i+2];
+      const brightness = (r + g + b) / 3;
+      if (brightness < 25 || brightness > 230) continue;
+      // Score by saturation: how far from grey
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      const saturation = max === 0 ? 0 : (max - min) / max;
+      if (saturation > bestScore) {
+        bestScore = saturation; bestR = r; bestG = g; bestB = b;
+      }
+    }
+    return bestScore >= 0 ? { r: bestR, g: bestG, b: bestB } : null;
+  } catch { return null; }
+}
+
+function applyBackground(color) {
+  if (!color) {
+    document.body.style.background = '#0a0a0a';
+    document.getElementById('cell-create-inner').style.background = 'rgba(0,0,0,0.45)';
+    document.getElementById('cell-playlists-inner').style.background = 'rgba(0,0,0,0.45)';
+    return;
+  }
+  const { r, g, b } = color;
+  // All stops fully opaque — lerp between accent and dark floor so no white bleeds in
+  const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+  const fr = 8, fg = 6, fb = 8; // very dark tinted floor
+  const dr = lerp(r, fr, 0.93), dg = lerp(g, fg, 0.93), db = lerp(b, fb, 0.93);
+  const mr = lerp(r, fr, 0.55), mg = lerp(g, fg, 0.55), mb = lerp(b, fb, 0.55);
+  const lr = lerp(r, fr, 0.78), lg = lerp(g, fg, 0.78), lb = lerp(b, fb, 0.78);
+  document.body.style.background = `
+    radial-gradient(ellipse 160% 65% at 50% 0%,
+      rgb(${r},${g},${b}) 0%,
+      rgb(${mr},${mg},${mb}) 40%,
+      rgb(${lr},${lg},${lb}) 65%,
+      rgb(${dr},${dg},${db}) 100%)`;
+  document.getElementById('cell-create-inner').style.background =
+    `linear-gradient(135deg, rgba(${r},${g},${b},0.30) 0%, rgba(${r},${g},${b},0.08) 100%)`;
+  document.getElementById('cell-playlists-inner').style.background =
+    `linear-gradient(155deg, rgba(${r},${g},${b},0.22) 0%, rgba(${r},${g},${b},0.06) 100%)`;
+}
+
 // ---- Track progress (local, no polling) ----
 function formatTime(ms) {
   const s = Math.floor(ms / 1000);
@@ -364,7 +415,9 @@ function showSong(index) {
   document.getElementById('album-name').textContent = track.album.name;
 
   const img = track.album.images[0];
-  document.getElementById('album-art').src = img ? img.url : '';
+  const imgEl = document.getElementById('album-art');
+  imgEl.onload = () => applyBackground(extractDominantColor(imgEl));
+  imgEl.src = img ? img.url : '';
 }
 
 function renderPlaylists() {
