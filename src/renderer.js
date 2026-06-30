@@ -116,6 +116,7 @@ function applyBackground(color) {
     document.body.style.background = '#0a0a0a';
     document.getElementById('cell-create-inner').style.background = 'rgba(0,0,0,0.45)';
     document.getElementById('cell-playlists-inner').style.background = 'rgba(0,0,0,0.45)';
+    document.getElementById('cell-tracker').style.background = 'rgba(0,0,0,0.45)';
     return;
   }
   const { r, g, b } = color;
@@ -125,22 +126,28 @@ function applyBackground(color) {
   const dr = lerp(r, fr, 0.93), dg = lerp(g, fg, 0.93), db = lerp(b, fb, 0.93);
   const mr = lerp(r, fr, 0.55), mg = lerp(g, fg, 0.55), mb = lerp(b, fb, 0.55);
   const lr = lerp(r, fr, 0.78), lg = lerp(g, fg, 0.78), lb = lerp(b, fb, 0.78);
+  const clamp = v => Math.min(255, v);
+  const br = clamp(Math.round(r * 1.55)), bg2 = clamp(Math.round(g * 1.55)), bb = clamp(Math.round(b * 1.55));
   document.body.style.background = `
     radial-gradient(ellipse 160% 65% at 50% 0%,
-      rgb(${r},${g},${b}) 0%,
-      rgb(${mr},${mg},${mb}) 40%,
-      rgb(${lr},${lg},${lb}) 65%,
+      rgb(${br},${bg2},${bb}) 0%,
+      rgb(${r},${g},${b}) 18%,
+      rgb(${mr},${mg},${mb}) 45%,
+      rgb(${lr},${lg},${lb}) 68%,
       rgb(${dr},${dg},${db}) 100%)`;
   // Tab gradients: same lerp approach, slightly muted so they don't overpower the background
   const tr = lerp(r, fr, 0.30), tg = lerp(g, fg, 0.30), tb = lerp(b, fb, 0.30);
   const tmr = lerp(r, fr, 0.62), tmg = lerp(g, fg, 0.62), tmb = lerp(b, fb, 0.62);
   const tdr = lerp(r, fr, 0.88), tdg = lerp(g, fg, 0.88), tdb = lerp(b, fb, 0.88);
+  const tbr = clamp(Math.round(tr * 1.55)), tbg2 = clamp(Math.round(tg * 1.55)), tbb = clamp(Math.round(tb * 1.55));
   const tabGrad = `linear-gradient(160deg,
-    rgb(${tr},${tg},${tb}) 0%,
-    rgb(${tmr},${tmg},${tmb}) 50%,
+    rgb(${tbr},${tbg2},${tbb}) 0%,
+    rgb(${tr},${tg},${tb}) 18%,
+    rgb(${tmr},${tmg},${tmb}) 55%,
     rgb(${tdr},${tdg},${tdb}) 100%)`;
   document.getElementById('cell-create-inner').style.background = tabGrad;
   document.getElementById('cell-playlists-inner').style.background = tabGrad;
+  document.getElementById('cell-tracker').style.background = tabGrad;
 }
 
 // ---- Track progress (local, no polling) ----
@@ -408,9 +415,7 @@ async function ensureTrack(index) {
 }
 
 function showSong(index) {
-  const pct = totalTracks ? Math.round((index / totalTracks) * 100) : 0;
-  document.getElementById('progress-bar').style.width = pct + '%';
-  document.getElementById('progress-label').textContent = `${index + 1} / ${totalTracks}`;
+document.getElementById('progress-label').textContent = `${index + 1} / ${totalTracks}`;
 
   const item = tracks[index];
   if (!item) return;
