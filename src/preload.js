@@ -7,7 +7,6 @@ contextBridge.exposeInMainWorld('spotify', {
   openSpotify: () => ipcRenderer.invoke('open-spotify'),
   saveProgress: (opts) => ipcRenderer.invoke('save-progress', opts),
   getPlaylistTracks: (opts) => ipcRenderer.invoke('get-playlist-tracks', opts),
-  getPlayerState: () => ipcRenderer.invoke('get-player-state'),
   pausePlayback: () => ipcRenderer.invoke('pause-playback'),
   resumePlayback: (opts) => ipcRenderer.invoke('resume-playback', opts),
   getDevices: () => ipcRenderer.invoke('get-devices'),

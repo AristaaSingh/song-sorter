@@ -8,7 +8,10 @@ let currentSource = null; // { type: 'liked' } | { type: 'playlist', id, name }
 // Playback
 let spotifyDeviceId = null;
 let isPlaying = false;
-let pollInterval = null;
+let playStartTime = null;   // Date.now() when current track started (adjusted for pauses)
+let pausedAt = 0;           // ms elapsed when paused
+let trackDuration = 0;
+let trackProgressRaf = null;
 
 // Waveform
 let wavePhase = 0;
@@ -83,40 +86,47 @@ function drawWaveframe() {
   waveAnimId = requestAnimationFrame(drawWaveframe);
 }
 
-// ---- Playback polling ----
+// ---- Track progress (local, no polling) ----
 function formatTime(ms) {
   const s = Math.floor(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-function startPolling() {
-  if (pollInterval) clearInterval(pollInterval);
-  pollInterval = setInterval(async () => {
-    const state = await window.spotify.getPlayerState();
-    if (!state) return;
-    const pct = state.item?.duration_ms
-      ? (state.progress_ms / state.item.duration_ms) * 100
-      : 0;
+function startTrackProgress(durationMs) {
+  trackDuration = durationMs;
+  playStartTime = Date.now();
+  pausedAt = 0;
+  if (trackProgressRaf) cancelAnimationFrame(trackProgressRaf);
+
+  document.getElementById('track-time-total').textContent = formatTime(durationMs);
+
+  function tick() {
+    if (!isPlaying) return;
+    const elapsed = Math.min(Date.now() - playStartTime, trackDuration);
+    const pct = (elapsed / trackDuration) * 100;
     document.getElementById('track-progress-fill').style.width = pct + '%';
-    document.getElementById('track-time-current').textContent = formatTime(state.progress_ms);
-    document.getElementById('track-time-total').textContent = formatTime(state.item?.duration_ms ?? 0);
-    isPlaying = state.is_playing;
-    document.getElementById('playpause-btn').textContent = isPlaying ? '⏸' : '▶';
-  }, 1000);
+    document.getElementById('track-time-current').textContent = formatTime(elapsed);
+    if (elapsed < trackDuration) trackProgressRaf = requestAnimationFrame(tick);
+  }
+  trackProgressRaf = requestAnimationFrame(tick);
 }
 
-function stopPolling() {
-  if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+function stopTrackProgress() {
+  if (trackProgressRaf) { cancelAnimationFrame(trackProgressRaf); trackProgressRaf = null; }
 }
 
 async function togglePlayPause() {
   if (isPlaying) {
     await window.spotify.pausePlayback();
     isPlaying = false;
+    pausedAt = Date.now() - playStartTime;   // remember where we are
+    stopTrackProgress();
   } else {
     const track = tracks[currentIndex]?.track;
     await window.spotify.resumePlayback({ deviceId: spotifyDeviceId, trackUri: track?.uri });
     isPlaying = true;
+    playStartTime = Date.now() - pausedAt;   // shift start time so elapsed stays correct
+    startTrackProgress(trackDuration);
   }
   document.getElementById('playpause-btn').textContent = isPlaying ? '⏸' : '▶';
 }
@@ -162,7 +172,7 @@ async function playCurrentSong() {
   isPlaying = (status === 204 || status === 200);
   if (isPlaying) {
     document.getElementById('playpause-btn').textContent = '⏸';
-    startPolling();
+    startTrackProgress(track.duration_ms);
   }
 }
 
@@ -404,7 +414,7 @@ async function nextSong() {
 
   if (currentIndex >= totalTracks) {
     cancelAnimationFrame(waveAnimId);
-    stopPolling();
+    stopTrackProgress();
     hide('sorter-wrap');
     document.getElementById('done-msg').textContent = 'All done! 🎉';
     show('done-screen');

@@ -214,11 +214,6 @@ ipcMain.handle('get-playlist-tracks', async (_, { playlistId, offset, limit }) =
   return res.body;
 });
 
-ipcMain.handle('get-player-state', async () => {
-  const cfg = loadConfig();
-  const res = await apiCall('GET', '/v1/me/player', null, cfg.clientId);
-  return res.status === 200 ? res.body : null;
-});
 
 ipcMain.handle('pause-playback', async () => {
   const cfg = loadConfig();
