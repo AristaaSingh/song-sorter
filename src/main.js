@@ -187,10 +187,34 @@ ipcMain.handle('get-playlists', async () => {
   return res.body;
 });
 
-ipcMain.handle('create-playlist', async (_, { userId, name }) => {
+ipcMain.handle('create-playlist', async (_, { name }) => {
   const cfg = loadConfig();
-  const res = await apiCall('POST', `/v1/users/${userId}/playlists`, { name, public: false }, cfg.clientId);
+  const res = await apiCall('POST', '/v1/me/playlists', { name, public: false }, cfg.clientId);
   return res.body;
+});
+
+ipcMain.handle('set-playlist-cover', async (_, { playlistId, imageBase64 }) => {
+  const cfg = loadConfig();
+  const jpegData = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+  return new Promise((resolve, reject) => {
+    const body = jpegData;
+    const req = https.request({
+      hostname: 'api.spotify.com',
+      path: `/v1/playlists/${playlistId}/images`,
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${cfg.accessToken}`,
+        'Content-Type': 'image/jpeg',
+        'Content-Length': Buffer.byteLength(body, 'base64'),
+      },
+    }, (res) => {
+      res.resume();
+      resolve(res.statusCode);
+    });
+    req.on('error', reject);
+    req.write(body, 'base64');
+    req.end();
+  });
 });
 
 ipcMain.handle('add-to-playlist', async (_, { playlistId, trackUri }) => {

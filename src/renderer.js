@@ -5,6 +5,7 @@ let tracks = [];
 let currentIndex = 0;
 let totalTracks = 0;
 let playlists = [];
+
 let userId = '';
 let currentSource = null; // { type: 'liked' } | { type: 'playlist', id, name }
 
@@ -316,15 +317,23 @@ function renderPlaylists() {
   playlists.forEach(pl => {
     const btn = document.createElement('button');
     btn.className = 'playlist-btn';
-    const img = document.createElement('img');
-    img.className = 'playlist-thumb';
-    img.src = pl.images?.[0]?.url || '';
-    img.alt = '';
+    const imgUrl = pl.images?.[0]?.url;
+    let thumb;
+    if (imgUrl) {
+      thumb = document.createElement('img');
+      thumb.className = 'playlist-thumb';
+      thumb.src = imgUrl;
+      thumb.alt = '';
+    } else {
+      thumb = document.createElement('div');
+      thumb.className = 'playlist-thumb playlist-thumb-empty';
+      thumb.textContent = '♪';
+    }
 
     const name = document.createElement('span');
     name.textContent = pl.name;
 
-    btn.appendChild(img);
+    btn.appendChild(thumb);
     btn.appendChild(name);
     btn.addEventListener('click', () => addToPlaylist(pl.id, pl.name));
     list.appendChild(btn);
@@ -362,7 +371,20 @@ async function createAndAdd() {
   const confirmed = await showConfirmModal(`Create "${name}" and add the current song to it?`);
   if (!confirmed) return;
 
-  const newPl = await window.spotify.createPlaylist({ userId, name });
+  const newPl = await window.spotify.createPlaylist(name);
+  if (newPl.id) {
+    // upload current album art as cover
+    try {
+      const imgEl = document.getElementById('album-art');
+      if (imgEl.src) {
+        const c = document.createElement('canvas');
+        c.width = 300; c.height = 300;
+        c.getContext('2d').drawImage(imgEl, 0, 0, 300, 300);
+        const base64 = c.toDataURL('image/jpeg', 0.85);
+        await window.spotify.setPlaylistCover({ playlistId: newPl.id, imageBase64: base64 });
+      }
+    } catch (e) { /* cover upload is best-effort */ }
+  }
   playlists.unshift(newPl);
   renderPlaylists();
   document.getElementById('new-playlist-input').value = '';
