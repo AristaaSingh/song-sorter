@@ -316,7 +316,6 @@ function renderPlaylists() {
   playlists.forEach(pl => {
     const btn = document.createElement('button');
     btn.className = 'playlist-btn';
-
     const img = document.createElement('img');
     img.className = 'playlist-thumb';
     img.src = pl.images?.[0]?.url || '';

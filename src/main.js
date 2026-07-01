@@ -194,7 +194,9 @@ ipcMain.handle('create-playlist', async (_, { userId, name }) => {
 
 ipcMain.handle('add-to-playlist', async (_, { playlistId, trackUri }) => {
   const cfg = loadConfig();
+  console.log('[add-to-playlist] playlistId:', playlistId, 'trackUri:', trackUri, 'userId:', cfg.userId);
   const res = await apiCall('POST', `/v1/playlists/${playlistId}/tracks`, { uris: [trackUri] }, cfg.clientId);
+  console.log('[add-to-playlist]', res.status, JSON.stringify(res.body));
   return res.body;
 });
 

@@ -1,6 +1,8 @@
 let peakColor = { r: 45, g: 255, b: 130 };
+let lightTheme = false;
 
 export function getPeakColor() { return peakColor; }
+export function isLightTheme() { return lightTheme; }
 
 export function extractDominantColor(img) {
   try {
@@ -44,6 +46,7 @@ export function applyBackground(color) {
   const clamp = v => Math.min(255, v);
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   const bright = luminance > 0.55;
+  lightTheme = bright;
   document.body.classList.toggle('theme-light', bright);
 
   let bgGrad, tabGrad;

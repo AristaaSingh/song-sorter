@@ -1,5 +1,5 @@
 import { initAudio, getOnsetStrength } from './audioAnalyser.js';
-import { getPeakColor } from './background.js';
+import { getPeakColor, isLightTheme } from './background.js';
 
 let waveAnimId = null;
 let peakHeight = 0;
@@ -30,9 +30,9 @@ function drawWaveframe() {
   const { r: pr, g: pg, b: pb } = getPeakColor();
 
   const onset = getOnsetStrength() ?? 0;
-  const THRESHOLD = 0.06;
+  const THRESHOLD = 0.07;
   const gated = Math.max(0, onset - THRESHOLD);
-  const target = Math.min(1, (gated * 18) ** 1.8);
+  const target = Math.min(1, (gated * 16) ** 1.5);
   peakHeight += (target - peakHeight) * (target > peakHeight ? 1.0 : 0.18);
 
   if (gated * 18 > 0.5) {
@@ -79,28 +79,29 @@ function drawWaveframe() {
       for (let x = 0; x <= W; x++) ctx.lineTo(x, edgePts[x]);
     }
 
+    const light = isLightTheme();
+
+    // soft glow hug — stays close to the line
     traceLine();
     ctx.shadowColor = `rgba(${pr},${pg},${pb},${alpha})`;
-    ctx.shadowBlur = blur * 3;
-    ctx.strokeStyle = `rgba(${pr},${pg},${pb},${alpha * 0.3})`;
-    ctx.lineWidth = lineWidth * 5;
-    ctx.stroke();
-
-    traceLine();
-    ctx.shadowBlur = blur * 1.5;
-    ctx.strokeStyle = `rgba(${pr},${pg},${pb},${alpha * 0.6})`;
+    ctx.shadowBlur = blur * (light ? 1.2 : 2);
+    ctx.strokeStyle = `rgba(${pr},${pg},${pb},${alpha * (light ? 0.4 : 0.55)})`;
     ctx.lineWidth = lineWidth * 2.5;
     ctx.stroke();
 
+    // core line
     traceLine();
-    ctx.shadowBlur = blur * 0.5;
+    ctx.shadowBlur = blur * (light ? 0.4 : 0.8);
     ctx.strokeStyle = `rgba(${pr},${pg},${pb},${alpha})`;
     ctx.lineWidth = lineWidth;
     ctx.stroke();
 
+    // centre highlight
     traceLine();
     ctx.shadowBlur = 0;
-    ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.6})`;
+    ctx.strokeStyle = light
+      ? `rgba(0,0,0,${alpha * 0.3})`
+      : `rgba(255,255,255,${alpha * 0.7})`;
     ctx.lineWidth = lineWidth * 0.4;
     ctx.stroke();
     ctx.shadowBlur = 0;

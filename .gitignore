@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# macOS
+.DS_Store
+
+# Electron build output
+dist/
+out/
+
+# User config (contains Spotify tokens)
+~/Library/Application Support/song-sorter/
