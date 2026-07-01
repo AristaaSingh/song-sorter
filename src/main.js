@@ -108,7 +108,6 @@ function startAuth(clientId) {
     authUrl.searchParams.set('scope', SCOPES);
     authUrl.searchParams.set('code_challenge_method', 'S256');
     authUrl.searchParams.set('code_challenge', challenge);
-    authUrl.searchParams.set('show_dialog', 'true');
 
     if (authServer) authServer.close();
 
@@ -246,7 +245,7 @@ ipcMain.handle('pause-playback', async () => {
   return res.status;
 });
 
-ipcMain.handle('resume-playback', async (_, { deviceId, trackUri }) => {
+ipcMain.handle('play', async (_, { deviceId, trackUri }) => {
   const cfg = loadConfig();
   const endpoint = deviceId ? `/v1/me/player/play?device_id=${deviceId}` : '/v1/me/player/play';
   const res = await apiCall('PUT', endpoint, { uris: [trackUri] }, cfg.clientId);
@@ -257,15 +256,6 @@ ipcMain.handle('get-devices', async () => {
   const cfg = loadConfig();
   const res = await apiCall('GET', '/v1/me/player/devices', null, cfg.clientId);
   return res.body;
-});
-
-ipcMain.handle('start-playback', async (_, { deviceId, trackUri }) => {
-  const cfg = loadConfig();
-  const endpoint = deviceId
-    ? `/v1/me/player/play?device_id=${deviceId}`
-    : '/v1/me/player/play';
-  const res = await apiCall('PUT', endpoint, { uris: [trackUri] }, cfg.clientId);
-  return res.status;
 });
 
 ipcMain.handle('get-desktop-sources', async () => {

@@ -75,7 +75,7 @@ async function togglePlayPause() {
     stopTrackProgress();
   } else {
     const track = tracks[currentIndex]?.track;
-    await window.spotify.resumePlayback({ deviceId: spotifyDeviceId, trackUri: track?.uri });
+    await window.spotify.play({ deviceId: spotifyDeviceId, trackUri: track?.uri });
     isPlaying = true;
     playStartTime = Date.now() - pausedAt;
     startTrackProgress(trackDuration);
@@ -120,7 +120,7 @@ async function playCurrentSong() {
     spotifyDeviceId = device.id;
   }
 
-  const status = await window.spotify.startPlayback({ deviceId: spotifyDeviceId, trackUri: track.uri });
+  const status = await window.spotify.play({ deviceId: spotifyDeviceId, trackUri: track.uri });
   isPlaying = (status === 204 || status === 200);
   if (isPlaying) {
     document.getElementById('playpause-btn').textContent = '⏸';
@@ -340,6 +340,15 @@ function renderPlaylists() {
   });
 }
 
+function albumArtAsBase64() {
+  const imgEl = document.getElementById('album-art');
+  if (!imgEl.src) return null;
+  const c = document.createElement('canvas');
+  c.width = 300; c.height = 300;
+  c.getContext('2d').drawImage(imgEl, 0, 0, 300, 300);
+  return c.toDataURL('image/jpeg', 0.85);
+}
+
 // ---- Actions ----
 async function addToPlaylist(playlistId, playlistName) {
   const track = tracks[currentIndex]?.track;
@@ -373,15 +382,11 @@ async function createAndAdd() {
 
   const newPl = await window.spotify.createPlaylist(name);
   if (newPl.id) {
-    // upload current album art as cover
     try {
-      const imgEl = document.getElementById('album-art');
-      if (imgEl.src) {
-        const c = document.createElement('canvas');
-        c.width = 300; c.height = 300;
-        c.getContext('2d').drawImage(imgEl, 0, 0, 300, 300);
-        const base64 = c.toDataURL('image/jpeg', 0.85);
+      const base64 = albumArtAsBase64();
+      if (base64) {
         await window.spotify.setPlaylistCover({ playlistId: newPl.id, imageBase64: base64 });
+        newPl.images = [{ url: document.getElementById('album-art').src }];
       }
     } catch (e) { /* cover upload is best-effort */ }
   }

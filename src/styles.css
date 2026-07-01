@@ -299,8 +299,10 @@ body {
   gap: 5px;
   padding: 2px;
 }
-#playlist-list::-webkit-scrollbar { width: 3px; }
-#playlist-list::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+#playlist-list::-webkit-scrollbar,
+#source-list::-webkit-scrollbar { width: 3px; }
+#playlist-list::-webkit-scrollbar-thumb,
+#source-list::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
 
 /* ---- Shared components ---- */
 input[type="text"] {
@@ -455,8 +457,6 @@ body.theme-light .btn-green { background: rgba(0,0,0,0.75); color: #fff; }
   flex-direction: column;
   gap: 8px;
 }
-#source-list::-webkit-scrollbar { width: 3px; }
-#source-list::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
 .source-item {
   display: flex;
   align-items: center;
