@@ -3,7 +3,7 @@ const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
 const https = require('https');
-const url = require('url');
+const { URL: NodeURL } = require('url');
 const fs = require('fs');
 
 const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
@@ -108,15 +108,16 @@ function startAuth(clientId) {
     authUrl.searchParams.set('scope', SCOPES);
     authUrl.searchParams.set('code_challenge_method', 'S256');
     authUrl.searchParams.set('code_challenge', challenge);
+    authUrl.searchParams.set('show_dialog', 'true');
 
     if (authServer) authServer.close();
 
     authServer = http.createServer(async (req, res) => {
-      const parsed = url.parse(req.url, true);
+      const parsed = new NodeURL(req.url, `http://127.0.0.1:${REDIRECT_PORT}`);
       if (parsed.pathname !== '/callback') { res.end(); return; }
 
-      const code = parsed.query.code;
-      if (!code || parsed.query.state !== state) {
+      const code = parsed.searchParams.get('code');
+      if (!code || parsed.searchParams.get('state') !== state) {
         res.writeHead(400);
         res.end('<h2>Auth failed — you can close this tab.</h2>');
         authServer.close();
@@ -194,9 +195,7 @@ ipcMain.handle('create-playlist', async (_, { userId, name }) => {
 
 ipcMain.handle('add-to-playlist', async (_, { playlistId, trackUri }) => {
   const cfg = loadConfig();
-  console.log('[add-to-playlist] playlistId:', playlistId, 'trackUri:', trackUri, 'userId:', cfg.userId);
-  const res = await apiCall('POST', `/v1/playlists/${playlistId}/tracks`, { uris: [trackUri] }, cfg.clientId);
-  console.log('[add-to-playlist]', res.status, JSON.stringify(res.body));
+  const res = await apiCall('POST', `/v1/playlists/${playlistId}/items`, { uris: [trackUri] }, cfg.clientId);
   return res.body;
 });
 
